@@ -125,7 +125,9 @@ func NewContextForRGBA(im *image.RGBA) *Context {
 
 // ScaleStyle determines the way image pixels are interpolated when scaled.
 // See
-//   https://pkg.go.dev/golang.org/x/image/draw
+//
+//	https://pkg.go.dev/golang.org/x/image/draw
+//
 // for the corresponding interpolators.
 //
 // 确定缩放时图像像素的插值方式。 请看
@@ -178,8 +180,8 @@ const (
 	CatmullRom
 )
 
-// 变压器
-func (s ScaleStyle) transformer() draw.Interpolator {
+// 选择缩放算法
+func Transformer(s ScaleStyle) draw.Interpolator {
 	switch s {
 	case BiLinear:
 		return draw.BiLinear
@@ -189,31 +191,37 @@ func (s ScaleStyle) transformer() draw.Interpolator {
 		return draw.NearestNeighbor
 	case CatmullRom:
 		return draw.CatmullRom
+	default:
+		return draw.BiLinear // BiLinear by default. 默认情况下为BiLinear。
 	}
-	return draw.BiLinear // BiLinear by default. 默认情况下为双线性。
 }
 
-// 设置比例样式
+// 转换器
+func (s ScaleStyle) transformer() draw.Interpolator {
+	return Transformer(s)
+}
+
+// 设置算法
 func (dc *Context) SetScaleStyle(s ScaleStyle) {
 	dc.scaleStyle = s
 }
 
-// 设置比例双线性
+// 设置缩放算法为 BiLinear
 func (dc *Context) SetScaleBiLinear() {
 	dc.SetScaleStyle(BiLinear)
 }
 
-// 设置比例近似双线性
+// 设置缩放算法为 ApproxBiLinear
 func (dc *Context) SetScaleApproxBiLinear() {
 	dc.SetScaleStyle(ApproxBiLinear)
 }
 
-// 设置最近邻的比例
+// 设置缩放算法为 NearestNeighbor
 func (dc *Context) SetScaleNearestNeighbor() {
 	dc.SetScaleStyle(NearestNeighbor)
 }
 
-// 设置比例为 CatmullRom
+// 设置缩放算法为 CatmullRom
 func (dc *Context) SetScaleCatmullRom() {
 	dc.SetScaleStyle(CatmullRom)
 }
@@ -222,7 +230,7 @@ func (dc *Context) SetScaleCatmullRom() {
 // The point will have been transformed by the context's transformation matrix.
 //
 // 返回当前点，如果存在当前点。
-//该点将通过上下文的变换矩阵进行变换。
+// 该点将通过上下文的变换矩阵进行变换。
 func (dc *Context) GetCurrentPoint() (Point, bool) {
 	if dc.hasCurrent {
 		return dc.current, true
@@ -347,7 +355,7 @@ func (dc *Context) SetLineJoinRound() {
 	dc.lineJoin = LineJoinRound
 }
 
-/// 设置线帽连接斜面
+// / 设置线帽连接斜面
 func (dc *Context) SetLineJoinBevel() {
 	dc.lineJoin = LineJoinBevel
 }
