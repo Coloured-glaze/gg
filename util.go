@@ -2,19 +2,17 @@ package gg
 
 import (
 	"bufio"
-	"encoding/binary"
-	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
-	"io/ioutil"
 	"math"
-	"net/http"
 	"os"
 	"strings"
 
+	"github.com/fumiama/imgsz"
 	"github.com/golang/freetype/truetype"
 
 	"golang.org/x/image/font"
@@ -121,79 +119,15 @@ func ImageToNRGBA64(src image.Image) *image.NRGBA64 {
 	return dst
 }
 
-//  解析图片的宽高信息
+// 解析图片的宽高信息
 func GetWH(path string) (int, int, error) {
-	b, err := ioutil.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return 0, 0, err
 	}
-	return GetImgWH(b)
-}
-
-//  解析图片的宽高信息
-func GetImgWH(imgBytes []byte) (int, int, error) {
-	var width, height int
-	t := http.DetectContentType(imgBytes) // 获取文件类型
-	switch t {
-	case "image/jpg", "image/jpeg":
-		width, height = GetJPGWH(imgBytes)
-	case "image/png":
-		width, height = GetPNGWH(imgBytes)
-	case "image/gif":
-		width, height = GetGIFWH(imgBytes)
-	default:
-		return 0, 0, errors.New("错误的文件类型")
-	}
-	return width, height, nil
-}
-
-// 获取 JPG 图片的宽高
-func GetJPGWH(img []byte) (int, int) {
-	var index int
-	iL := len(img)
-	for i := 0; i < iL-1; i++ {
-		if img[i] != 0xff {
-			continue
-		}
-		if img[i+1] == 0xC0 || img[i+1] == 0xC1 || img[i+1] == 0xC2 {
-			index = i
-			break
-		}
-	}
-	index += 5
-	if index >= iL {
-		return 0, 0
-	}
-	height := int(img[index])<<8 + int(img[index+1])
-	width := int(img[index+2])<<8 + int(img[index+3])
-	return width, height
-}
-
-// 获取 PNG 图片的宽高
-func GetPNGWH(imgBytes []byte) (int, int) {
-	pngHeader := "\x89PNG\r\n\x1a\n"
-	if string(imgBytes[:len(pngHeader)]) != pngHeader {
-		return 0, 0
-	}
-	index := 12
-	if string(imgBytes[index:index+4]) != "IHDR" {
-		return 0, 0
-	}
-	index += 4
-	width := int(binary.BigEndian.Uint32(imgBytes[index : index+4]))
-	height := int(binary.BigEndian.Uint32(imgBytes[index+4 : index+8]))
-	return width, height
-}
-
-// 获取 GIF 图片的宽高
-func GetGIFWH(imgBytes []byte) (int, int) {
-	ver := string(imgBytes[:6])
-	if ver != "GIF87a" && ver != "GIF89a" {
-		return 0, 0
-	}
-	width := int(imgBytes[6]) + int(imgBytes[7])<<8
-	height := int(imgBytes[8]) + int(imgBytes[9])<<8
-	return width, height
+	defer f.Close()
+	sz, _, err := imgsz.DecodeSize(f)
+	return sz.Width, sz.Height, err
 }
 
 // 解析十六进制颜色
@@ -205,18 +139,17 @@ func ParseHexColor(x string) (r, g, b, a int) {
 func parseHexColor(x string) (r, g, b, a int) {
 	x = strings.TrimPrefix(x, "#")
 	a = 255
-	if len(x) == 3 {
+	switch len(x) {
+	case 3:
 		format := "%1x%1x%1x"
 		fmt.Sscanf(x, format, &r, &g, &b)
 		r |= r << 4
 		g |= g << 4
 		b |= b << 4
-	}
-	if len(x) == 6 {
+	case 6:
 		format := "%02x%02x%02x"
 		fmt.Sscanf(x, format, &r, &g, &b)
-	}
-	if len(x) == 8 {
+	case 8:
 		format := "%02x%02x%02x%02x"
 		fmt.Sscanf(x, format, &r, &g, &b, &a)
 	}
@@ -255,18 +188,38 @@ func unfix(x fixed.Int26_6) float64 {
 // LoadFontFace 是一个辅助函数，用于加载指定点大小的指定字体文件。
 // 请注意，返回的 `font.Face` 对象不是线程安全的，不能跨 goroutine 并行使用。
 // 您通常可以只使用 Context.LoadFontFace 函数而不是这个包级函数。
-func LoadFontFace(path string, points float64) (font.Face, error) {
-	fontBytes, err := ioutil.ReadFile(path)
+func LoadFontFace(path string, points float64) (face font.Face, err error) {
+	fontBytes, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return
 	}
 	f, err := truetype.Parse(fontBytes)
 	if err != nil {
-		return nil, err
+		return
 	}
-	face := truetype.NewFace(f, &truetype.Options{
+	face = truetype.NewFace(f, &truetype.Options{
 		Size: points,
 		// Hinting: font.HintingFull,
 	})
-	return face, nil
+	return
+}
+
+// ParseFontFace 是一个辅助函数，用于加载指定点大小的指定字体文件。
+// 请注意，返回的 `font.Face` 对象不是线程安全的，不能跨 goroutine 并行使用。
+// 您通常可以只使用 Context.LoadFontFace 函数而不是这个包级函数。
+func ParseFontFace(b []byte, points float64) (face font.Face, err error) {
+	f, err := truetype.Parse(b)
+	if err != nil {
+		return
+	}
+	face = truetype.NewFace(f, &truetype.Options{
+		Size: points,
+		// Hinting: font.HintingFull,
+	})
+	return
+}
+
+// Takecolor 实现基于k-means算法的图像取色算法
+func TakeColor(img image.Image, k int) []color.RGBA {
+	return takecolor(img, k)
 }

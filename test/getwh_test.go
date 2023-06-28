@@ -14,19 +14,19 @@ import (
 
 func BenchmarkByte(b *testing.B) {
 	//by, _ := ioutil.ReadFile("../examples/james-webb.png")
-	by, _ := ioutil.ReadFile("../examples/gopher.png")
 
 	b.ResetTimer() //重置时间
 	for i := 0; i < b.N; i++ {
-		gg.GetPNGWH(by)
+		gg.GetWH("../examples/gopher.png")
 	}
 	/*
-	   goos: windows
-	   goarch: amd64
-	   cpu: Intel(R) Core(TM) i3-10100F CPU @ 3.60GHz
-	   BenchmarkByte-8   	1000000000	         0.8591 ns/op	       0 B/op	       0 allocs/op
-	   PASS
-	   ok  	_/e_/1/github/gg/test	0.978s
+		goos: windows
+		goarch: amd64
+		cpu: Intel(R) Core(TM) i3-10100F CPU @ 3.60GHz
+		BenchmarkByte-8
+		39444             31425 ns/op            5800 B/op          7 allocs/op
+		PASS
+		ok      github.com/Coloured-glaze/gg/test       1.576s
 	*/
 }
 
